@@ -1,0 +1,39 @@
+name: Compile Both KidiCyberdeck Boards
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 Core & LovyanGFX
+        run: |
+          arduino-cli config init --overwrite --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@3.0.7
+          arduino-cli lib install "LovyanGFX"
+
+      - name: Compile Top Main Screen (Black ESP32-S3)
+        run: |
+          mkdir -p build_main
+          arduino-cli compile --fqbn "esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=huge_app,PSRAM=opi,USBMode=hwcdc,CDCOnBoot=cdc" --output-dir build_main KidiDeck_Main_ESP32_S3/KidiDeck_Main_ESP32_S3.ino
+
+      - name: Compile Bottom Keyboard Deck (Yellow ESP32-32E)
+        run: |
+          mkdir -p build_deck
+          arduino-cli compile --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app" --output-dir build_deck KidiDeck_Keyboard_ESP32_32E/KidiDeck_Keyboard_ESP32_32E.ino
+
+      - name: Upload Both Firmware Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: kidideck-dual-screen-bins
+          path: |
+            build_main/*.merged.bin
+            build_deck/*.merged.bin
